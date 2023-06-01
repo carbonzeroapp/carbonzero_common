@@ -1,0 +1,73 @@
+services:
+  postgres_db:
+    container_name: db
+    image: postgres:15.0
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./init_scripts:/docker-entrypoint-initdb.d
+    env_file:
+      - ./.env
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--username=${POSTGRES_USER}
+    restart: always
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    ports: 
+      - 5432:5432
+  data-management-be:
+    container_name: data-management-be
+    build:
+      context: ../
+      dockerfile: ./carbonzero_data_management/Dockerfile.dev
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_SCHEMA=data_management_schema
+    ports:
+      - 8000:8000
+    restart: always
+    image: data-management-be
+    volumes:
+      - ../carbonzero_data_management:/carbonzero-data-management-dir
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+  user-management-be:
+    container_name: user-management-be
+    build:
+      context: ../
+      dockerfile: ./carbonzero_user_management/Dockerfile.dev
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_SCHEMA=user_management_schema
+    ports:
+      - 8001:8001
+    restart: always
+    image: user-management-be
+    volumes:
+      - ../carbonzero_user_management:/carbonzero-user-management-dir
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+  nginx:
+    image: nginx:latest
+    ports:
+      - 80:80
+    volumes:
+      - ../carbonzero_api_gateway/nginx/nginx-setup.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../carbonzero_data_management/static:/static
+    depends_on:
+      - postgres_db
+      - data-management-be
+      - user-management-be
+volumes:
+  pgdata:

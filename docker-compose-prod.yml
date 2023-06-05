@@ -4,6 +4,7 @@ services:
     image: postgres:15.0
     volumes:
       - pgdata:/var/lib/postgresql/data
+      - ./init_scripts:/docker-entrypoint-initdb.d
     env_file:
       - .env
     environment:
@@ -18,21 +19,37 @@ services:
       retries: 5
     ports: 
       - 5432:5432
-  backend:
-    container_name: carbonzero-data-management-be
+  data-management-be:
+    container_name: data-management-be
     build:
-      context: ../carbonzero_data_management
-      dockerfile: ../carbonzero_data_management/Dockerfile.prod
+      context: ../
+      dockerfile: ./carbonzero_data_management/Dockerfile.prod
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_SCHEMA=data_management_schema
     expose:
       - 8000
-    volumes:
-      - static:/carbonzero-data-management/static
     restart: always
-    image: carbonzero-data-management-be
+    image: data-management-be
+    depends_on:
+      postgres_db:
+        condition: service_healthy
+  user-management-be:
+    container_name: user-management-be
+    build:
+      context: ../
+      dockerfile: ./carbonzero_user_management/Dockerfile.prod
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_SCHEMA=user_management_schema
+    expose:
+      - 8001
+    restart: always
+    image: user-management-be
     depends_on:
       postgres_db:
         condition: service_healthy
@@ -41,11 +58,11 @@ services:
     ports:
       - 80:80
     volumes:
-      - ./nginx/nginx-setup.conf:/etc/nginx/conf.d/default.conf:ro
-      - static:/static
+      - ../carbonzero_api_gateway/nginx/nginx-setup.conf:/etc/nginx/conf.d/default.conf:ro
+      - ../carbonzero_data_management/static:/static
     depends_on:
       - postgres_db
-      - backend
+      - data-management-be
+      - user-management-be
 volumes:
   pgdata:
-  static:

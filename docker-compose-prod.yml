@@ -55,7 +55,7 @@ services:
         condition: service_healthy
   ml-model-be:
     container_name: ml-model-be
-    command: gunicorn --bind 0.0.0.0:8002 manage:app
+    command: gunicorn --bind 0.0.0.0:8002 manage:app_ins
     build:
       context: ../
       dockerfile: ./carbonzero_ml_model/Dockerfile.prod

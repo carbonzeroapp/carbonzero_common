@@ -53,6 +53,17 @@ services:
     depends_on:
       postgres_db:
         condition: service_healthy
+  ml-model-be:
+    container_name: ml-model-be
+    command: gunicorn --bind 0.0.0.0:8002 manage:app
+    build:
+      context: ../
+      dockerfile: ./carbonzero_ml_model/Dockerfile.prod
+    expose:
+      - 8002
+    restart: always
+    env_file:
+      - ../carbonzero_ml_model/.env.prod
   nginx:
     image: nginx:latest
     ports:
